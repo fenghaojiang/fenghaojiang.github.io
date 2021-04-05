@@ -5,7 +5,7 @@
     
 <meta charset="utf-8" >
 
-<title>关于 | SevenLunas</title>
+<title>牛皮钊钊文集 | SevenLunas</title>
 <meta name="description" content="We live in a twilight world, and there are no friend at dusk.">
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -16,12 +16,6 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
 <link rel="stylesheet" href="https://fenghaojiang.github.io/styles/main.css">
 
-
-  
-    <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css" />
-  
-
-  
 
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
@@ -84,38 +78,48 @@
 
 
       <div class="content-container">
-        <div class="post-detail">
-          
-          <h2 class="post-title">关于</h2>
-          <div class="post-info post-detail-info">
-            <span><i class="icon-calendar-outline"></i> 2019-01-25</span>
-            
-          </div>
-          <div class="post-content">
-            <blockquote>
-<p>欢迎来到fenghaojiang的小站呀，很高兴遇见你！🤝</p>
-</blockquote>
-<h2 id="关于本站">🏠 关于本站</h2>
-<h2 id="博主是谁">👨‍💻 博主是谁</h2>
-<p>本科就读于华南师范大学(SCNU)的Golang后端开发工程师</p>
-<h2 id="兴趣爱好">⛹ 兴趣爱好</h2>
-<p>Writing</p>
-<h2 id="联系我呀">📬 联系我呀</h2>
-<p>fenghaojiang97@m.scnu.edu.cn</p>
 
-          </div>
+        <div class="current-tag-container">
+          <h2 class="title">
+            <i class="icon icon-pricetags-outline"></i> 牛皮钊钊文集
+          </h2> 
         </div>
 
         
+<section class="post-item">
+    <div class="content">
+      <a href="https://fenghaojiang.github.io/post/chou-xiang-de-ren-ying-gai-shi-wo/">
+        <h2 class="post-title">抽象的人应该是我</h2>
+      </a>
+      <div class="post-abstract">
+        
       </div>
+      <div class="post-info">
+        <span><i class="icon icon-calendar-outline"></i> 2021-04-05</span>
+        
+          <span>
+            <i class="icon icon-pricetags-outline"></i>
+            
+              <a href="https://fenghaojiang.github.io/tag/NlufPlav3/">
+                牛皮钊钊文集
+                
+              </a>
+            
+          </span>
+        
+      </div>
+    </div>
+    
+  </section>
 
-      
-        
-          <div id="gitalk-container"></div>
-        
 
-        
-      
+<div class="pagination-container">
+  
+  
+</div>
+
+
+      </div>
 
       <div class="site-footer">
   <div class="slogan">We live in a twilight world, and there are no friend at dusk.</div>
@@ -149,29 +153,6 @@ var app = new Vue({
 })
 
 </script>
-
-
-
-  
-    <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
-    <script>
-
-      var gitalk = new Gitalk({
-        clientID: '29b6a4edad42b9a06b04',
-        clientSecret: '0b2bf43ec802b62ce6bba7fe69c330f1c6f29d62',
-        repo: 'blog-comments',
-        owner: 'fenghaojiang',
-        admin: ['fenghaojiang'],
-        id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
-        distractionFreeMode: false  // Facebook-like distraction free mode
-      })
-
-      gitalk.render('gitalk-container')
-
-    </script>
-  
-
-  
 
 
 
