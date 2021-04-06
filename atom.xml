@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://fenghaojiang.github.io</id>
     <title>SevenLunas</title>
-    <updated>2021-04-05T14:10:42.809Z</updated>
+    <updated>2021-04-06T12:54:39.716Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://fenghaojiang.github.io"/>
     <link rel="self" href="https://fenghaojiang.github.io/atom.xml"/>
@@ -10,6 +10,13 @@
     <logo>https://fenghaojiang.github.io/images/avatar.png</logo>
     <icon>https://fenghaojiang.github.io/favicon.ico</icon>
     <rights>All rights reserved 2021, SevenLunas</rights>
+    <entry>
+        <title type="html"><![CDATA[老派约会之必要]]></title>
+        <id>https://fenghaojiang.github.io/post/lao-pai-yue-hui-zhi-bi-yao/</id>
+        <link href="https://fenghaojiang.github.io/post/lao-pai-yue-hui-zhi-bi-yao/">
+        </link>
+        <updated>2021-04-06T12:41:44.000Z</updated>
+    </entry>
     <entry>
         <title type="html"><![CDATA[抽象的人应该是我]]></title>
         <id>https://fenghaojiang.github.io/post/chou-xiang-de-ren-ying-gai-shi-wo/</id>
