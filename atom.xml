@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://fenghaojiang.github.io</id>
     <title>SevenLunas</title>
-    <updated>2021-04-07T12:30:23.410Z</updated>
+    <updated>2021-05-05T12:29:40.533Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://fenghaojiang.github.io"/>
     <link rel="self" href="https://fenghaojiang.github.io/atom.xml"/>
@@ -10,6 +10,17 @@
     <logo>https://fenghaojiang.github.io/images/avatar.png</logo>
     <icon>https://fenghaojiang.github.io/favicon.ico</icon>
     <rights>All rights reserved 2021, SevenLunas</rights>
+    <entry>
+        <title type="html"><![CDATA[这个世界大概不会变好]]></title>
+        <id>https://fenghaojiang.github.io/post/zhe-ge-shi-jie-da-gai-bu-hui-bian-hao/</id>
+        <link href="https://fenghaojiang.github.io/post/zhe-ge-shi-jie-da-gai-bu-hui-bian-hao/">
+        </link>
+        <updated>2021-05-05T11:56:00.000Z</updated>
+        <summary type="html"><![CDATA[<p>电影学中经常会说一句话，叫，“你是否看到一只鸡？”</p>
+]]></summary>
+        <content type="html"><![CDATA[<p>电影学中经常会说一句话，叫，“你是否看到一只鸡？”</p>
+]]></content>
+    </entry>
     <entry>
         <title type="html"><![CDATA[自由而无用]]></title>
         <id>https://fenghaojiang.github.io/post/zi-you-er-wu-yong/</id>
