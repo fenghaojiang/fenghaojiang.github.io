@@ -1,0 +1,220 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Raft论文翻译与笔记 | SevenLunas</title>
+<link rel="shortcut icon" href="https://fenghaojiang.github.io/favicon.ico?v=1711358412336">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://fenghaojiang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Raft论文翻译与笔记 | SevenLunas - Atom Feed" href="https://fenghaojiang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="摘要
+Raft 是一种用于管理复制日志的共识算法。它的效果跟Paxos的一样，并且它和Paxos一样高效，但它的结构不同于Paxos，这使得 Raft 比 Paxos更加容易理解，也为构建实用系统提供了更好的基础。为了增强可理解性，Raft..." />
+    <meta name="keywords" content="技术" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://fenghaojiang.github.io">
+  <img class="avatar" src="https://fenghaojiang.github.io/images/avatar.png?v=1711358412336" alt="">
+  </a>
+  <h1 class="site-title">
+    SevenLunas
+  </h1>
+  <p class="site-description">
+    We live in a twilight world, and there are no friends at dusk.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+        <a href="https://github.com/fenghaojiang" target="_blank">
+          <i class="ri-github-line"></i>
+        </a>
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Raft论文翻译与笔记
+            </h2>
+            <div class="post-info">
+              <span>
+                2021-12-02
+              </span>
+              <span>
+                3 min read
+              </span>
+              
+                <a href="https://fenghaojiang.github.io/tag/Uvd2zV35S/" class="post-tag">
+                  # 技术
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <h1 id="摘要">摘要</h1>
+<p>Raft 是一种用于管理复制日志的共识算法。它的效果跟Paxos的一样，并且它和Paxos一样高效，但它的结构不同于Paxos，这使得 Raft 比 Paxos更加容易理解，也为构建实用系统提供了更好的基础。为了增强可理解性，Raft 分离了共识的关键元素，例如leader选举、日志复制和安全，并强制执行更强的一致性，以减少必须考虑的状态数量。用户研究结果表明对于学生来说 Raft 比 Paxos更容易学习。 Raft 还包含一个新的机制来改变集群成员，它使用重叠（overlapping）多数来保证安全性。</p>
+<h1 id="介绍">介绍</h1>
+<p>共识算法允许一个由多个机器的组成集合作为一个连贯的组工作，即使某些成员失败。然后就是说Paxos影响了很多共识算法，在大型可靠软件系统中扮演重要角色。但是很难理解，所以不好用。然后优化understandability，定义一种更容易懂的共识算法。然后想让这个新算法去促进构建系统的人的必要直觉（intuitions that are essential），. It was important not just for the algorithm to work, but for it to be obvious why it works.<br>
+然后设计的结果就是Raft算法。优化的过程进行了大量的分解（decomposition）还有状态空间缩减reduction，相比Paxos，Raft降低了不确定性的程度还有减少了每个服务器不一致的方式。<br>
+Raft跟现有的共识算法很像，但是有几个新颖的特点：</p>
+<ul>
+<li>Strong Leader<br>
+Raft 使用比其他共识算法更强的领导形式。 例如，日志条目（log entries）仅从领导者流向其他服务器。 这简化了复制日志的管理，使 Raft 更容易理解。</li>
+<li>Leader election<br>
+Raft使用了随机的定时器去选举leader，只是在所有共识算法都必须实现的心跳机制上加了一点机制，就可以简单快捷解决冲突问题。</li>
+<li>Membership changes<br>
+Raft使用一种联合一致的方法来处理集群成员的变换问题，在这种方法下，处于调整过程中的两种不同的配置集群中大多数机器会有重叠，这使得集群在成员变换的时候仍然可以继续工作。</li>
+</ul>
+<p>我们相信Raft比Paxos还有其他的共识算法更加优秀，不仅仅是因为出于教育的目的还是作为实践项目的基础。它比其他算法更加简单、更加容易被理解。</p>
+<p>Raft原文链接：<a href="https://ramcloud.atlassian.net/wiki/download/attachments/6586375/raft.pdf">In search of an Understandable Consensus Algorithm (Extended Version) 》(寻找一种易于理解的一致性算法)</a><br>
+Raft Live Demo: <a href="http://thesecretlivesofdata.com/raft/">http://thesecretlivesofdata.com/raft/</a></p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li><a href="#%E6%91%98%E8%A6%81">摘要</a></li>
+<li><a href="#%E4%BB%8B%E7%BB%8D">介绍</a></li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://fenghaojiang.github.io/post/golang-gmp-diao-du-mo-xing/">
+              <h3 class="post-title">
+                Golang GMP调度模型
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '29b6a4edad42b9a06b04',
+    clientSecret: '0b2bf43ec802b62ce6bba7fe69c330f1c6f29d62',
+    repo: 'blog-comments',
+    owner: 'fenghaojiang',
+    admin: ['fenghaojiang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  
+  <a class="rss" href="https://fenghaojiang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

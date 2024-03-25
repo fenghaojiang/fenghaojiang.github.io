@@ -1,0 +1,460 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HTTP 2.0 论文阅读翻译及笔记 | SevenLunas</title>
+<link rel="shortcut icon" href="https://fenghaojiang.github.io/favicon.ico?v=1711358412336">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://fenghaojiang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="HTTP 2.0 论文阅读翻译及笔记 | SevenLunas - Atom Feed" href="https://fenghaojiang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="摘要
+HTTP2.0引入了header字段压缩，并且支持了同一个连接上的多个并发请求，有效地利用了网络资源减少了了延迟感知。同时引入了服务端的主动推送。
+1.介绍
+旧版的HTTP是一个很成功的协议。但是某些特征对当今应用程序的整体性能有负面..." />
+    <meta name="keywords" content="技术" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://fenghaojiang.github.io">
+  <img class="avatar" src="https://fenghaojiang.github.io/images/avatar.png?v=1711358412336" alt="">
+  </a>
+  <h1 class="site-title">
+    SevenLunas
+  </h1>
+  <p class="site-description">
+    We live in a twilight world, and there are no friends at dusk.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+        <a href="https://github.com/fenghaojiang" target="_blank">
+          <i class="ri-github-line"></i>
+        </a>
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              HTTP 2.0 论文阅读翻译及笔记
+            </h2>
+            <div class="post-info">
+              <span>
+                2021-11-17
+              </span>
+              <span>
+                21 min read
+              </span>
+              
+                <a href="https://fenghaojiang.github.io/tag/Uvd2zV35S/" class="post-tag">
+                  # 技术
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <h1 id="摘要">摘要</h1>
+<p>HTTP2.0引入了header字段压缩，并且支持了同一个连接上的多个并发请求，有效地利用了网络资源减少了了延迟感知。同时引入了服务端的主动推送。</p>
+<h1 id="1介绍">1.介绍</h1>
+<p>旧版的HTTP是一个很成功的协议。但是某些特征对当今应用程序的整体性能有负面影响。<br>
+具体而言，HTTP/1.0只允许在一个连接上处理一个请求。HTTP/1.1增加了请求pipeline，但仅仅解决了请求并发的问题，但是仍然会有pipeline头部阻塞问题。因此，HTTP/1.0和HTTP/1.1都需要去用到多个连接去处理多个请求来降低并发延时。<br>
+此外，HTTP的header通常是重复并且冗长，导致了开始的TCP拥塞窗口被快速填充，当在一个新的TCP连接上发出多个请求时，这可能会导致过度的延迟。<br>
+HTTP/2通过优化过的HTTP语义映射来解决这些问题。具体说就是允许了同一连接上的全双工通信，交叉请求和响应消息，并且更高效的编码方式去处理header。同时，允许请求优先级排序，进一步提高性能。<br>
+综上与HTTP/1.x相比，HTTP/2使用更少的TCP连接。这意味着与其他流的竞争更少，连接寿命更长，从而可以更好地利用可用的网络容量。<br>
+最后，HTTP/2还支持通过使用二进制消息帧来更有效地处理消息。</p>
+<h1 id="2-http-2协议概述">2. HTTP / 2协议概述</h1>
+<p>HTTP/2支持HTTP/1.1的所有核心特性，在几个方面做到了更高效的效果。<br>
+HTTP/2中的基本协议单元是一个帧。每种帧类型都有不同的用途。例如，headers和data帧组成了请求/响应的基础。其他的帧类型比如settings，window_update和push_promise用于支持其他HTTP/2的特性。<br>
+请求的多路复用是通过在一个流上分配多个HTTP请求/响应交换来实现的。流在很大程度上是相互独立的，所以一个阻塞或停止的请求或响应不会阻止其他流上的处理。<br>
+流控制和优先级可以保证流的多路复用。流量控制有助于确保只传输接收方可以使用的数据。优先级确保有限的资源可以首先被用在最重要的流上。<br>
+HTTP/2增加了一个新的模式，服务器可以向客户端推送响应。服务器推送允许服务器对应地向客户端发送服务器预期客户端将需要的数据，以牺牲一些网络使用和潜在的延迟增益。服务器通过合成一个请求来实现这一点，该请求以push_promise帧的形式发送。然后，服务器能够在单独的流上向合成请求发送响应。<br>
+因为在连接中使用的HTTP header字段可能包含大量的冗余数据，所以它们的帧被压缩。在通常情况下，这优化了请求大小，允许将许多请求压缩到一个包中。</p>
+<h2 id="21-文档组织">2.1 文档组织</h2>
+<p>HTTP/2规范分为四个部分:</p>
+<ul>
+<li>启动HTTP/2介绍了如何发起HTTP/2连接。</li>
+<li>帧和流层描述了HTTP/2帧的结构形式和形成多路复用流的方式。</li>
+<li>帧和错误的定义包括HTTP/2中使用的帧和错误类型的细节。</li>
+<li>HTTP映射和附加需求描述了如何使用帧和流来表达HTTP语义。<br>
+虽然一些帧和流层的概念与HTTP是隔离的，但本规范并没有定义一个完全通用/广义的帧层。帧层和流层是根据HTTP协议和服务器推送的需要定制的。</li>
+</ul>
+<h2 id="22-约定和术语">2.2 约定和术语</h2>
+<p>所有数值都按网络字节顺序排列。值是无符号的，除非另有说明。文字值根据情况以十进制或十六进制提供。十六进制字面量以0x作为前缀，以区别于十进制字面量。<br>
+使用了以下术语:</p>
+<ul>
+<li>client: 发起HTTP/2连接的端点。客户端发送HTTP请求并接收HTTP响应。</li>
+<li>connection: 两个端点之间的传输层连接。</li>
+<li>connection error: 一个影响整个HTTP/2连接的错误。</li>
+<li>endpoint: 连接的客户端或服务端。</li>
+<li>frame: HTTP/2连接中最小的通信单元，由header和根据帧类型结构的可变长度的八字节序列组成。</li>
+<li>peer: 一个端点。当讨论特定的端点时，“对等端”指的是讨论的主题的远程端点</li>
+<li>receiver: 正在接收帧的端点</li>
+<li>sender: 正在传输帧的端点</li>
+<li>server: 不是启动HTTP/2连接的端点</li>
+<li>stream: 一个双向字节帧流穿过HTTP/2连接中的虚拟通道</li>
+<li>stream error: 一个HTTP/2流中的错误</li>
+</ul>
+<h1 id="3-启动http2">3. 启动HTTP/2</h1>
+<p>HTTP/2连接是运行在TCP连接之上的应用层协议。客户端是TCP连接的发起者。<br>
+HTTP/2使用与HTTP/1.1相同的“HTTP”和“https”URI方案。HTTP/2共享相同的默认端口号:“HTTP”uri为80，“https”uri为443。因此，处理目标资源uri(如http://example.org/foo或https://example.com/bar)请求的实现需要首先发现上游服务器(客户端希望与之建立连接的直接对等端)是否支持HTTP/2。<br>
+这意味着对于“HTTP”和“https”uri，决定是否支持HTTP/2的方法是不同的。</p>
+<h2 id="31-http-2版本识别">3.1 HTTP / 2版本识别</h2>
+<p>在本文档中定义的协议有两个标识符。</p>
+<ul>
+<li>字符&quot;h2&quot;表示HTTP/2协议使用TLS。TLS 应用层协议协商扩展字段以及任何通过TLS识别HTTP/2的地方。“h2”字符串作为两个字节序列:0x68, 0x32被序列化为ALPN协议标识符。</li>
+<li>字符&quot;h2c&quot; 表示HTTP/2协议是在明文TCP上运行的协议。这个标识用在HTTP/1.1 升级报头(Upgrade header)字段以及任何通过TCP识别HTTP/2的地方。“h2c”字符串从ALPN标识符空间中保留，但描述了不使用TLS的协议。<br>
+协商“h2”或“h2c”意味着使用本文档中描述的传输、安全、帧和消息语义。</li>
+</ul>
+<h2 id="32-httpuris中的http2启动">3.2 “http”URIs中的HTTP/2启动</h2>
+<p>客户端不知晓是否支持HTTP/2的情况下请求一个“http”URI，使用了HTTP Upgrade mechanism（http升级机制）。客户端通过发送一个包含一个带有“h2c”token的HTTP/1.1请求来实现。这样的HTTP/1.1请求必须包含一个HTTP2-Settings header字段。<br>
+比如：</p>
+<pre><code class="language-http">GET / HTTP/1.1
+Host: server.example.com
+Connection: Upgrade, HTTP2-Settings
+Upgrade: h2c
+HTTP2-Settings: &lt;base64url encoding of HTTP/2 SETTINGS payload&gt;
+</code></pre>
+<p>包含负载body的请求<em>必须</em>在客户端发送HTTP/2帧之前全部发送，这意味着一个大的请求可以阻塞连接的使用，直到它被完全发送。<br>
+如果初始请求与后续请求的并发性很重要，那么可以使用一个OPTIONS请求来升级到HTTP/2，但代价是额外的往返。<br>
+不支持HTTP/2的服务器可以响应请求但是没有Upgrade header（升级报头）字段:</p>
+<pre><code class="language-http">HTTP/1.1 200 OK
+Content-Length: 243
+Content-Type: text/html
+...
+</code></pre>
+<p>服务端必须忽略Upgrade header字段中的“h2”token。“h2”token的出现意味着通过TLS的HTTP/2。<br>
+支持HTTP/2的服务端通过101（交换协议）响应接受升级。在101响应结束的空行之后，服务器可以开始发送HTTP/2帧。这些帧必须包含对启动升级请求的响应。<br>
+例如：</p>
+<pre><code class="language-http">HTTP/1.1 101 Switching Protocols
+Connection: Upgrade
+Upgrade: h2c
+
+[ HTTP/2 connection ...
+</code></pre>
+<p>服务端发送的第一个HTTP/2帧必须是一个由SETTINGS frame（设置帧）组成的服务端连接序言。在收到101响应后，客户端必须发送一个包括一个SETTINGS frame（设置帧）的连接序言。<br>
+在升级之前发送的HTTP/1.1请求被分配一个流标识符1（stream identifier 1）和默认优先级值。从客户端到服务端的流1（stream 1）是隐式“半封闭”的，因为请求是作为HTTP/1.1请求完成的。启动HTTP/2连接后，流1用于响应。</p>
+<h3 id="321-http2-设置头字段settings-header-field">3.2.1 HTTP2 设置头字段（Settings Header Field）</h3>
+<p>从HTTP/1.1升级到HTTP/2的请求必须包含一个确切的HTTP2-Settings报头字段。HTTP2-Settings报头字段是一个特定于连接的报头字段（connection-specific header field），它包含控制HTTP/2连接的参数，在服务端接受升级请求时提供。</p>
+<pre><code class="language-http">HTTP2-Settings     =    token68
+</code></pre>
+<p>如果这个报头字段不存在或者存在多个报头字段，那么服务端绝对不能升级到HTTP/2。服务端绝对不能发送这个报头字段。<br>
+HTTP2-Settings报头字段的内容是设置帧（SETTINGS frame）的负载（payload），是编码为base64url的字符串。<br>
+由于升级目的仅仅是应用在即时连接，发送HTTP2-Settings报头字段的客户端也必须在连接报头字段中发送HTTP2-Settings作为连接选项，以防止它被转发。<br>
+服务端对这些值进行解码和解释，就像对其他设置帧（SETTINGS frame）进行解码和解释一样。不需要显式确认这些设置，因为101响应作为隐式确认。在升级请求中提供这些值使客户端有机会在从服务端接收任何帧之前提供参数。</p>
+<h2 id="33-为httpsuris启动http2">3.3 为“https”URIs启动HTTP/2</h2>
+<p>客户端向“https”URI发出请求时使用TLS和应用层协议协商(ALPN)扩展。<br>
+在TLS上的HTTP/2使用“h2”协议标识符。“h2c”协议标识符必须不能由客户端发送或由服务端选择;“h2c”协议标识符描述了一个不使用TLS的协议。<br>
+一旦TLS协商完成，客户端和服务器端都必须发送一个连接序言。</p>
+<h2 id="34-通过先验知识启动http2">3.4 通过先验知识启动HTTP/2</h2>
+<p>客户端可以通过其他方式了解到特定的服务端支持HTTP/2。<br>
+客户端必须发送连接序言，然后可以立即发送HTTP/2帧给这样的服务器;服务器可以通过连接序言来识别这些连接。这只用影响明文TCP的HTTP/2连接的建立;支持HTTP/2 over TLS的实现必须在TLS中使用协议协商。<br>
+同样地，服务端必须发送一个连接序言。<br>
+如果没有额外的信息，先前对HTTP/2的支持并不意味着一个给定的服务端将在未来的连接中支持HTTP/2。例如，服务端配置可能会改变，集群服务器中的实例之间的配置可能会不同，或者网络条件可能会改变。</p>
+<h2 id="35-http2-连接前言">3.5 HTTP/2 连接前言</h2>
+<p>在HTTP/2中，每个endpoint都需要发送一个连接序言作为使用协议的最终确认，并为HTTP/2连接建立初始设置。客户端和服务端各自发送不同的连接序言。<br>
+客户端连接序言以24个字节的序列开始，十六进制表示为:</p>
+<pre><code class="language-go">0x505249202a20485454502f322e300d0a0d0a534d0d0a0d0a
+</code></pre>
+<p>也就是说，连接序言以字符串PRI * HTTP/2.0\r\n\r\nSM\r\n\r n)开始。这个序列后面必须有一个设置帧（SETTINGS frame），它可能是空的。客户端在收到101(交换协议)响应(表示升级成功)或作为TLS连接的第一个应用程序数据字节时立即发送客户端连接序言。如果在知道服务端支持HTTP/2协议的前提下启动HTTP/2连接，则在连接建立时发送客户端连接序言。<br>
+注意:选择客户端连接序言是为了让大部分HTTP/1.1或HTTP/1.0服务器和中介不会试图处理进一步的帧。请注意，这并没有解决[Talking]中提出的问题。<br>
+服务端连接序言包含一个可能为空的设置帧，它必须是服务器在HTTP/2连接中发送的第一个帧。<br>
+作为连接序言的一部分从对等端接收到的 设置帧 必须在发送连接序言之后被确认。<br>
+为了避免不必要的延迟，允许客户端在发送客户端连接序言后立即向服务器发送额外的帧，而无需等待接收服务器连接序言。然而，需要注意的是，服务端连接序言设置帧可能包含一些参数，这些参数可能会改变期望客户机与服务端通信的方式。在接收到设置帧后，客户端被期望遵守所建立的任何参数。在某些配置中，服务端可能在客户端发送额外帧之前发送设置，从而有机会避免这个问题。<br>
+客户端和服务端必须将无效的连接序言作为类型为协议错误的连接错误处理。在这种情况下，超时帧可以省略，因为无效的序言表明对等端没有使用HTTP/2。</p>
+<h1 id="4-http-frameshttp-帧">4. HTTP Frames（HTTP 帧）</h1>
+<p>一旦HTTP/2连接建立，端点就可以开始交换帧。</p>
+<h2 id="41-frame布局">4.1 Frame布局</h2>
+<p>所有帧都以固定的9字节头开始，然后是可变长度的有效负载。<br>
+一个字节八位（3+1+1+4）* 8 == 9*8</p>
+<p>+-----------------------------------------------+<br>
+|                 Length (24)                   |<br>
++---------------+---------------+---------------+<br>
+|   Type (8)    |   Flags (8)   |<br>
++-+-------------+---------------+-------------------------------+<br>
+|R|                 Stream Identifier (31)                      |<br>
++=+=============================================================+<br>
+|                   Frame Payload (0...)                      ...<br>
++---------------------------------------------------------------+</p>
+<p>帧的布局：<br>
+帧报头的字段定义如下:</p>
+<ul>
+<li>Length：表示为无符号24位整数的帧负载的长度。大于214(16,384)的值必须不被发送，除非接收方为SETTINGS_MAX_FRAME_SIZE设置了一个更大的值。帧报头的9个字节不包括在这个值中。</li>
+<li>Type：帧的8位类型。帧类型决定了帧的格式和语义。实现必须忽略并丢弃任何具有未知类型的帧。</li>
+<li>Flags：为特定于帧类型的布尔Flags保留的8位字段。Flags被指定为特定于指定帧类型的语义。对于特定的帧类型没有定义语义的Flags必须被忽略，并且在发送时必须保持不设置(0x0)。</li>
+<li>R：保留的1位字段。该位的语义未定义，发送时必须保持未设置(0x0)，接收时必须忽略。</li>
+<li>Stream Identifier：一种表示为31位无符号整数的流标识符。值0x0保留给与连接整体相关联的帧，而不是单独的流。</li>
+</ul>
+<p>帧有效负载的结构和内容完全依赖于帧类型。</p>
+<h2 id="42-frame大小">4.2 Frame大小</h2>
+<p>帧的负载大小被限制在接受器在SETTINGS_MAX_FRAME_SIZE发布的最大大小。这个设置可以是2<sup>14</sup>(16,384)到2<sup>24</sup>-1(16,777,215)字节之间的任意值。<br>
+所有实现必须能够接收和最低限度地处理长度为2<sup>14</sup>字节的帧，加上9字节的报头。描述帧大小时不包括帧报头的大小。<br>
+注意:某些帧类型，如PING，对允许的有效负载数据的数量施加了额外的限制。<br>
+如果一个帧超过SETTINGS_MAX_FRAME_SIZE中定义的帧大小，超过任何帧类型的限制，或者太小而不能包含强制的帧数据，终端必须发送一个错误码FRAME_SIZE_ERROR。在可能改变整个连接状态的帧中出现的帧大小错误必须作为连接错误处理;这包括任何带有报头块的帧(即（HEADERS）报头，（PUSH_PROMISE）推送承诺和（CONTINUATION）延续)，设置，以及任何流标识为0的帧。<br>
+端点（Endpoints ）没有义务使用帧中的所有可用空间。响应性可以通过使用比允许的最大尺寸更小的帧来提高。发送体积大的帧会导致发送时间敏感的帧(如RST_STREAM、WINDOW_UPDATE或PRIORITY)的延迟，这些延迟如果被体积大的帧的传输阻塞，可能会影响性能。</p>
+<h2 id="43-header的压缩和解压">4.3 Header的压缩和解压</h2>
+<p>就像在HTTP/1中一样，HTTP/2中的报头字段是一个带有一个或多个关联值的名称。报头字段在HTTP请求和响应消息中使用，也在服务端推送操作中使用。<br>
+报头列表是零个或多个报头字段的集合。当通过连接传输时，报头列表使用HTTP报头压缩（COMPRESSION）序列化为报头块（header block）。然后，序列化的报头块被分割成一个或多个字节序列，称为报头块碎片（header block fragment），并在报头（HEADERS）、推送承诺（PUSH_PROMISE）或延续（CONTINUATION）帧的有效负载中传输。<br>
+Cookie报头字段被HTTP映射专门处理。<br>
+接收端点通过连接它的片段重新组装报头块，然后解压缩该块以重建报头列表。<br>
+一个完整的报头区块包括：</p>
+<ul>
+<li>一个设置了END_HEADERS flag标记的单个HEADERS帧或者PUSH_PROMISE帧，或者</li>
+<li>清除了END_HEADERS标记的HEADERS帧或PUSH_PROMISE帧和一个或多个PUSH_PROMISE帧，其中最后一个PUSH_PROMISE帧设置了END_HEADERS标记。<br>
+报头压缩是有状态的。整个连接使用一个压缩上下文和一个解压缩上下文。报头块中的解码错误必须作为类型为COMPRESSION_ERROR的连接错误处理。<br>
+每个报头块被处理为一个离散单元。报头块必须作为连续的帧序列传输，不包含任何其他类型或来自任何其他流的交叉帧（interleaved frames）。（HEADERS）报头帧或（CONTINUATION）延续帧序列中的最后一帧设置了END_HEADERS标志。PUSH_PROMISE或CONTINUATION帧序列中的最后一帧设置了END_HEADERS标志。这允许报头块在逻辑上等同于单个帧。<br>
+（Header block fragments）报头块碎片只能作为HEADERS帧、PUSH_PROMISE帧或CONTINUATION帧的负载发送，因为这些帧携带的数据可以修改接收端维护的压缩上下文。HEADERS、PUSH_PROMISE或CONTINUATION帧的端点需要重新组装报头块（header block）并执行解压缩，即使这些帧将被丢弃。如果接收端不解压缩报头块，则必须终止连接，并出现类型为COMPRESSION_ERROR的连接错误。</li>
+</ul>
+<h1 id="5流与多路复用">5.流与多路复用</h1>
+<p>“流”是一个独立的、双向的帧序列，在HTTP/2连接中客户端和服务端之间交换。流有几个重要的特征：</p>
+<ul>
+<li>一个HTTP/2连接可以包含多个并发打开的流，任一端点都交织来自多个流的帧。</li>
+<li>流可以单独建立和使用，也可以由客户端或服务端共享。</li>
+<li>流可以被任一端点关闭。</li>
+<li>在流上发送帧的顺序是重要的。接收方按照接收帧的顺序处理帧。特别地，（HEADERS）报头和（DATA）数据帧的顺序在语义上是有意义的。</li>
+<li>流由一个整数标识。流标识符由初始化流的端点分配给流。</li>
+</ul>
+<h2 id="51-流状态">5.1 流状态</h2>
+<p>流的生命周期。</p>
+<pre><code>                         +--------+
+                 send PP |        | recv PP
+                ,--------|  idle  |--------.
+               /         |        |         \
+              v          +--------+          v
+       +----------+          |           +----------+
+       |          |          | send H /  |          |
+,------| reserved |          | recv H    | reserved |------.
+|      | (local)  |          |           | (remote) |      |
+|      +----------+          v           +----------+      |
+|          |             +--------+             |          |
+|          |     recv ES |        | send ES     |          |
+|   send H |     ,-------|  open  |-------.     | recv H   |
+|          |    /        |        |        \    |          |
+|          v   v         +--------+         v   v          |
+|      +----------+          |           +----------+      |
+|      |   half   |          |           |   half   |      |
+|      |  closed  |          | send R /  |  closed  |      |
+|      | (remote) |          | recv R    | (local)  |      |
+|      +----------+          |           +----------+      |
+|           |                |                 |           |
+|           | send ES /      |       recv ES / |           |
+|           | send R /       v        send R / |           |
+|           | recv R     +--------+   recv R   |           |
+| send R /  `-----------&gt;|        |&lt;-----------'  send R / |
+| recv R                 | closed |               recv R   |
+`-----------------------&gt;|        |&lt;----------------------'
+                         +--------+
+   send:   endpoint sends this frame
+   recv:   endpoint receives this frame
+
+   H:  HEADERS frame (with implied CONTINUATIONs)
+   PP: PUSH_PROMISE frame (with implied CONTINUATIONs)
+   ES: END_STREAM flag
+   R:  RST_STREAM frame
+</code></pre>
+<p>需要注意的是，此图显示了流状态的转换以及仅影响这些转换的帧和flag。在这方面，CONTINUATION帧不会导致状态转换；它们实际上是它们遵循的HEADERS或PUSH_PROMISE的一部分。为了达到状态转换的目的，END_STREAM标志被作为一个单独的事件处理给承载它的帧；带有END_STREAM标记的HEADERS帧会导致两种状态转换。<br>
+当帧在传输时，两个端点对流的状态都有一个主观的看法，在转换状态中的帧，流可能会不一样。端点并不会流的创建;它们是由任意端点单方面创建的。在发送RST_STREAM后，不匹配状态的负面后果仅限于“关闭”状态，在关闭后帧可能会被接收一段时间。<br>
+流有以下状态：<br>
+<strong>idle</strong>（空闲状态）：<br>
+所有流都以“空闲”状态启动。<br>
+以下转换在此状态下有效:</p>
+<ul>
+<li>发送或接收HEADERS帧会导致流“打开”。流标识符的选择如章节5.1.1所述。同样的HEADERS帧也会导致流立即变成“半封闭”状态。</li>
+<li>在另一个流上发送PUSH_PROMISE帧会保留空闲流以供以后使用。保留流的流状态转换为“reserved(local)”。</li>
+<li>在另一个流上接收PUSH_PROMISE帧会保留一个空闲流，该流被标识为以后使用。保留流的流状态转换为“reserved(remote)”。</li>
+<li>注意PUSH_PROMISE帧不是在空闲流上发送的，而是在承诺流ID字段中引用新保留的流。</li>
+</ul>
+<p>在这种状态下，流上接收任何报头或优先级以外的帧必须被视为类型为协议错误的连接错误。</p>
+<h1 id="名词翻译">名词翻译：</h1>
+<ul>
+<li>server connection preface  ---  服务端连接序言</li>
+</ul>
+<h1 id="个人总结">个人总结：</h1>
+<ul>
+<li>HTTP/1.0 一次请求一次响应，每一个请求建立一个连接。</li>
+<li>HTTP/1.1 若干个请求排队串行化单线程处理请求，前面的请求超时了后面的也会受到影响。head of the line</li>
+<li>HTTP/2多个请求并行执行（多路复用）。进行了二进制分帧处理，HTTP/2使用header编码减少header大小，并且通信的双方缓存一份头部字段表。如果header发生变化，只需要把变化的那部分假如header帧中，就会被加到头部字段表。header字段表在连接存在的期间都存在，由双端维护更新。优先级。服务端推送。</li>
+</ul>
+<p>论文来源：<a href="https://httpwg.org/specs/rfc7540.html">RFC 7540论文链接</a></p>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li><a href="#%E6%91%98%E8%A6%81">摘要</a></li>
+<li><a href="#1%E4%BB%8B%E7%BB%8D">1.介绍</a></li>
+<li><a href="#2-http-2%E5%8D%8F%E8%AE%AE%E6%A6%82%E8%BF%B0">2. HTTP / 2协议概述</a>
+<ul>
+<li><a href="#21-%E6%96%87%E6%A1%A3%E7%BB%84%E7%BB%87">2.1 文档组织</a></li>
+<li><a href="#22-%E7%BA%A6%E5%AE%9A%E5%92%8C%E6%9C%AF%E8%AF%AD">2.2 约定和术语</a></li>
+</ul>
+</li>
+<li><a href="#3-%E5%90%AF%E5%8A%A8http2">3. 启动HTTP/2</a>
+<ul>
+<li><a href="#31-http-2%E7%89%88%E6%9C%AC%E8%AF%86%E5%88%AB">3.1 HTTP / 2版本识别</a></li>
+<li><a href="#32-httpuris%E4%B8%AD%E7%9A%84http2%E5%90%AF%E5%8A%A8">3.2 “http”URIs中的HTTP/2启动</a>
+<ul>
+<li><a href="#321-http2-%E8%AE%BE%E7%BD%AE%E5%A4%B4%E5%AD%97%E6%AE%B5settings-header-field">3.2.1 HTTP2 设置头字段（Settings Header Field）</a></li>
+</ul>
+</li>
+<li><a href="#33-%E4%B8%BAhttpsuris%E5%90%AF%E5%8A%A8http2">3.3 为“https”URIs启动HTTP/2</a></li>
+<li><a href="#34-%E9%80%9A%E8%BF%87%E5%85%88%E9%AA%8C%E7%9F%A5%E8%AF%86%E5%90%AF%E5%8A%A8http2">3.4 通过先验知识启动HTTP/2</a></li>
+<li><a href="#35-http2-%E8%BF%9E%E6%8E%A5%E5%89%8D%E8%A8%80">3.5 HTTP/2 连接前言</a></li>
+</ul>
+</li>
+<li><a href="#4-http-frameshttp-%E5%B8%A7">4. HTTP Frames（HTTP 帧）</a>
+<ul>
+<li><a href="#41-frame%E5%B8%83%E5%B1%80">4.1 Frame布局</a></li>
+<li><a href="#42-frame%E5%A4%A7%E5%B0%8F">4.2 Frame大小</a></li>
+<li><a href="#43-header%E7%9A%84%E5%8E%8B%E7%BC%A9%E5%92%8C%E8%A7%A3%E5%8E%8B">4.3 Header的压缩和解压</a></li>
+</ul>
+</li>
+<li><a href="#5%E6%B5%81%E4%B8%8E%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8">5.流与多路复用</a>
+<ul>
+<li><a href="#51-%E6%B5%81%E7%8A%B6%E6%80%81">5.1 流状态</a></li>
+</ul>
+</li>
+<li><a href="#%E5%90%8D%E8%AF%8D%E7%BF%BB%E8%AF%91">名词翻译：</a></li>
+<li><a href="#%E4%B8%AA%E4%BA%BA%E6%80%BB%E7%BB%93">个人总结：</a></li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://fenghaojiang.github.io/post/jin-nian-shu-dan-zong-jie/">
+              <h3 class="post-title">
+                2022 书单总结
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '29b6a4edad42b9a06b04',
+    clientSecret: '0b2bf43ec802b62ce6bba7fe69c330f1c6f29d62',
+    repo: 'blog-comments',
+    owner: 'fenghaojiang',
+    admin: ['fenghaojiang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  
+  <a class="rss" href="https://fenghaojiang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

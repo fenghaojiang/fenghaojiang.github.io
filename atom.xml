@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://fenghaojiang.github.io</id>
+    <title>SevenLunas</title>
+    <updated>2024-03-25T09:21:20.285Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://fenghaojiang.github.io"/>
+    <link rel="self" href="https://fenghaojiang.github.io/atom.xml"/>
+    <subtitle>We live in a twilight world, and there are no friends at dusk.</subtitle>
+    <logo>https://fenghaojiang.github.io/images/avatar.png</logo>
+    <icon>https://fenghaojiang.github.io/favicon.ico</icon>
+    <rights>All rights reserved 2024, SevenLunas</rights>
+    <entry>
+        <title type="html"><![CDATA[How I implement debank feed API without using extra event log storage]]></title>
+        <id>https://fenghaojiang.github.io/post/wo-shi-zen-me-yong-zhi-yong-jie-dian-fang-fa-shi-xian-debank-history-feed-de/</id>
+        <link href="https://fenghaojiang.github.io/post/wo-shi-zen-me-yong-zhi-yong-jie-dian-fang-fa-shi-xian-debank-history-feed-de/">
+        </link>
+        <updated>2023-06-12T05:47:34.000Z</updated>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Funny Quiz About Block Chain]]></title>
+        <id>https://fenghaojiang.github.io/post/funny-quiz-about-block-chain/</id>
+        <link href="https://fenghaojiang.github.io/post/funny-quiz-about-block-chain/">
+        </link>
+        <updated>2023-02-20T03:03:32.000Z</updated>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Spark捣鼓记录]]></title>
+        <id>https://fenghaojiang.github.io/post/spark-ji-chu/</id>
+        <link href="https://fenghaojiang.github.io/post/spark-ji-chu/">
+        </link>
+        <updated>2022-07-25T06:09:02.000Z</updated>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[2022 Books]]></title>
+        <id>https://fenghaojiang.github.io/post/2022-books/</id>
+        <link href="https://fenghaojiang.github.io/post/2022-books/">
+        </link>
+        <updated>2022-05-18T11:27:46.000Z</updated>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Berkle Tree（B+ Merkle Tree）]]></title>
+        <id>https://fenghaojiang.github.io/post/berkle-tree/</id>
+        <link href="https://fenghaojiang.github.io/post/berkle-tree/">
+        </link>
+        <updated>2022-02-19T13:36:53.000Z</updated>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[HTTP 3.0 论文阅读笔记]]></title>
+        <id>https://fenghaojiang.github.io/post/http-30-lun-wen-yue-du-fan-yi-ji-bi-ji/</id>
+        <link href="https://fenghaojiang.github.io/post/http-30-lun-wen-yue-du-fan-yi-ji-bi-ji/">
+        </link>
+        <updated>2022-02-17T14:26:47.000Z</updated>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Raft论文翻译与笔记]]></title>
+        <id>https://fenghaojiang.github.io/post/chang-shi-shou-xie-yi-ge-raft-demo/</id>
+        <link href="https://fenghaojiang.github.io/post/chang-shi-shou-xie-yi-ge-raft-demo/">
+        </link>
+        <updated>2021-12-02T15:26:23.000Z</updated>
+    </entry>
+</feed>

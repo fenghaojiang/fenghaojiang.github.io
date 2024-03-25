@@ -1,0 +1,358 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How I implement debank feed API without using extra event log storage | SevenLunas</title>
+<link rel="shortcut icon" href="https://fenghaojiang.github.io/favicon.ico?v=1711358412336">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://fenghaojiang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="How I implement debank feed API without using extra event log storage | SevenLunas - Atom Feed" href="https://fenghaojiang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="Hey guys. I am a blockchain backend developer who worked for a Web3 API SaaS Company. Today I am going to illustrate How..." />
+    <meta name="keywords" content="" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://fenghaojiang.github.io">
+  <img class="avatar" src="https://fenghaojiang.github.io/images/avatar.png?v=1711358412336" alt="">
+  </a>
+  <h1 class="site-title">
+    SevenLunas
+  </h1>
+  <p class="site-description">
+    We live in a twilight world, and there are no friends at dusk.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+        <a href="https://github.com/fenghaojiang" target="_blank">
+          <i class="ri-github-line"></i>
+        </a>
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              How I implement debank feed API without using extra event log storage
+            </h2>
+            <div class="post-info">
+              <span>
+                2023-06-12
+              </span>
+              <span>
+                6 min read
+              </span>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <p>Hey guys. I am a blockchain backend developer who worked for a Web3 API SaaS Company. Today I am going to illustrate <code>How I implement debank feed API</code> without using database to store extra event logs data except an <code>erigon</code> node.</p>
+<p>Preprations</p>
+<ol>
+<li>erigon node with completely full logs (not a archive node is all right) and with no limitations of <code>block range</code> in request params.</li>
+<li>database that stores the transaction <code>from</code> address and <code>to</code> address</li>
+</ol>
+<p>Difficulties<br>
+Let’s start to analyze the difficuties and the problems need to be solved before we start to implement this API.</p>
+<ol>
+<li>
+<p>API Data need Presented in reverse order. In <code>Debank</code> / <code>Zerion</code> / <code>Zapper</code>, there is always showing the latest logs or transactions first. But in common implementation of <code>Ethereum</code> node, logs are returned in increasing order and so as the way you requested.</p>
+</li>
+<li>
+<p>It’s difficult to union <code>from</code> topic and <code>to</code> topic in a single request. But if you want to implement the API, you need to find out not only tokens the address sent but also tokens that address received. You can easily request <code>from</code> topic and <code>to</code> topic separately using following request:</p>
+</li>
+</ol>
+<pre><code class="language-json">curl --request POST \
+     --url 'https://rpc.ankr.com/eth' \
+     --header 'accept: application/json' \
+     --header 'content-type: application/json' \
+     --data '{
+    &quot;id&quot;:1,
+    &quot;jsonrpc&quot;:&quot;2.0&quot;,
+    &quot;method&quot;:&quot;eth_getLogs&quot;,
+    &quot;params&quot;:[
+        {
+            &quot;fromBlock&quot;:&quot;0x10a4b01&quot;,
+            &quot;toBlock&quot;:&quot;0x10a4b01&quot;,
+            &quot;topics&quot;:[
+                [],
+                [
+                    &quot;0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045&quot;
+                ]
+            ]
+        }
+    ]
+}'
+</code></pre>
+<p>But sometimes you do not care about the location of the specific topic, you just care about if the topic exists in that logs.</p>
+<ol start="3">
+<li>
+<p>Hard to find the block number when you just want to fetch the latest. In most of the cases, when you want to look into an account address you do not know the block number the transaction happened. So you will search it using Etherscan or other toolkit but it would make it less effective.</p>
+</li>
+<li>
+<p>Pagination. It’s hard to fetch page in the cursor way using current API.</p>
+</li>
+</ol>
+<p>To Solve problems above, I implement a new API erigon_getLatestLog in erigon node. I will elaborate on how this API is designed in another article. In this article, I mainly describe How to use this API. Simply put, this API implements the following functions.</p>
+<p>It will return specific number of logs or block matching a give filter objects by descend and it provide you an option called IgnoreTopicsOrder . By setting the option true, logs with topics are return without caring the topics orders. In bloomfilter, calculating Or operation of bits is more effective in using SQL Or so I would like to put this operation in API.</p>
+<p>The API has following parameters:</p>
+<p>ethereum.FilterQuery : The filter query is the same to eth_getLogs .<br>
+IgnoreTopicsOrde: When IgnoreTopicsOrde option is true, once the logs have a topic that matched, it will be returned no matter what topic position it is in.<br>
+blockCount : The block size that match the filter query.<br>
+With the API, we can get debank feed easily.</p>
+<p>Here’s the core part of the implementation.</p>
+<pre><code class="language-go">// client call the `erigon_getLatestLogs` method
+func (c *Client) DebankFeed(ctx context.Context, endBlockCursor *big.Int, accountAddress common.Address) ([]types.Log, error) {
+ var logs []types.Log
+
+ query := ethereum.FilterQuery{
+  FromBlock: new(big.Int).SetUint64(0),
+  Topics: [][]common.Hash{
+   {
+    accountAddress.Hash(),
+   },
+  },
+ }
+
+ // cursor way to fetch
+ if endBlockCursor != nil {
+  query.ToBlock = endBlockCursor
+ }
+
+ err := c.client.CallContext(ctx, &amp;logs, &quot;erigon_getLatestLogs&quot;, query, Query{
+  // logs size where it stops the iteration 
+  LogCount:          20,
+  // ignore the location of the topic
+  IgnoreTopicsOrder: true,
+ })
+ return logs, err
+}
+Once we have the original log feed, we can start to resolve the logs data.
+
+// Resolve data and do some aggregated calculation jobs
+
+func main() {
+ cli, err := client.NewClient(context.Background(), &quot;http://localhost:8545&quot;)
+ if err != nil {
+  fmt.Println(err.Error())
+  return
+ }
+
+ account := common.HexToAddress(&quot;0xd8da6bf26964af9d7eed9e03e53415d37aa96045&quot;)
+
+ vitalikLogs, err := cli.DebankFeed(context.Background(), nil, account)
+ if err != nil {
+  fmt.Println(err.Error())
+  return
+ }
+
+ fmt.Printf(&quot;length of vitalik logs: %d&quot;, len(vitalikLogs))
+
+ // token balance changes in the same transaction
+ tokenChanges := make(map[common.Hash]map[common.Address]*big.Int)
+
+ for _, l := range vitalikLogs {
+  switch {
+  case erc20.FilterERC20Transfer(l):
+   if tokenChanges[l.TxHash] == nil {
+    tokenChanges[l.TxHash] = make(map[common.Address]*big.Int)
+   }
+
+   event, err := cli.Erc20Filter.ParseTransfer(l)
+   if err != nil {
+    fmt.Println(err.Error())
+    return
+   }
+
+   if tokenChanges[l.TxHash][l.Address] == nil {
+    tokenChanges[l.TxHash][l.Address] = new(big.Int).SetUint64(0)
+   }
+
+   // calculate the aggregated result
+   if event.From == account {
+    tokenChanges[l.TxHash][l.Address].Sub(tokenChanges[l.TxHash][l.Address], event.Value)
+   }
+
+   if event.To == account {
+    tokenChanges[l.TxHash][l.Address].Add(tokenChanges[l.TxHash][l.Address], event.Value)
+   }
+
+  case erc721.FilterERC721Transfer(l):
+   if tokenChanges[l.TxHash] == nil {
+    tokenChanges[l.TxHash] = make(map[common.Address]*big.Int)
+   }
+
+   event, err := cli.Erc721Filter.ParseTransfer(l)
+   if err != nil {
+    fmt.Println(err.Error())
+    return
+   }
+
+   if tokenChanges[l.TxHash][l.Address] == nil {
+    tokenChanges[l.TxHash][l.Address] = new(big.Int).SetUint64(0)
+   }
+
+   // calculate the aggregated result
+   if event.From == account {
+    tokenChanges[l.TxHash][l.Address].Sub(tokenChanges[l.TxHash][l.Address], new(big.Int).SetUint64(1))
+   }
+
+   if event.To == account {
+    tokenChanges[l.TxHash][l.Address].Add(tokenChanges[l.TxHash][l.Address], new(big.Int).SetUint64(1))
+   }
+
+   // TODO Weth Aggregated Logic
+  }
+ }
+}
+</code></pre>
+<p>Hope you like this feature in erigon. More features will be added in erigon v3 to help blockchain better.</p>
+<p>All the codes above are open-source and can be found on https://github.com/fenghaojiang/debank-feed.</p>
+<p>Any suggestions, comments (including criticisms) and contributions are welcome.</p>
+<p>Plz contract me via Github Or email fenghaojiang97@gmail.com.</p>
+
+              </div>
+              <div class="toc-container">
+                
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://fenghaojiang.github.io/post/funny-quiz-about-block-chain/">
+              <h3 class="post-title">
+                Funny Quiz About Block Chain
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '29b6a4edad42b9a06b04',
+    clientSecret: '0b2bf43ec802b62ce6bba7fe69c330f1c6f29d62',
+    repo: 'blog-comments',
+    owner: 'fenghaojiang',
+    admin: ['fenghaojiang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  
+  <a class="rss" href="https://fenghaojiang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

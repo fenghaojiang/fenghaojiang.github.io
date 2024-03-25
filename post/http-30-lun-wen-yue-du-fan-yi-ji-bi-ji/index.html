@@ -1,0 +1,235 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HTTP 3.0 论文阅读笔记 | SevenLunas</title>
+<link rel="shortcut icon" href="https://fenghaojiang.github.io/favicon.ico?v=1711358412336">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://fenghaojiang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="HTTP 3.0 论文阅读笔记 | SevenLunas - Atom Feed" href="https://fenghaojiang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="摘要
+QUIC是一个在UDP上层建立的多路复用传输。HTTP/3被设计来利用QUIC的优点，包括了没有流之间的Head-Of-Line阻塞
+QUIC一开始只是用来替代TCP+TLS+HTTP/2，改善用户的使用体验尤其是页面加载时间。IET..." />
+    <meta name="keywords" content="技术" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://fenghaojiang.github.io">
+  <img class="avatar" src="https://fenghaojiang.github.io/images/avatar.png?v=1711358412336" alt="">
+  </a>
+  <h1 class="site-title">
+    SevenLunas
+  </h1>
+  <p class="site-description">
+    We live in a twilight world, and there are no friends at dusk.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+        <a href="https://github.com/fenghaojiang" target="_blank">
+          <i class="ri-github-line"></i>
+        </a>
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              HTTP 3.0 论文阅读笔记
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-02-17
+              </span>
+              <span>
+                3 min read
+              </span>
+              
+                <a href="https://fenghaojiang.github.io/tag/Uvd2zV35S/" class="post-tag">
+                  # 技术
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <h1 id="摘要">摘要</h1>
+<p>QUIC是一个在UDP上层建立的多路复用传输。HTTP/3被设计来利用QUIC的优点，包括了没有流之间的Head-Of-Line阻塞<br>
+QUIC一开始只是用来替代TCP+TLS+HTTP/2，改善用户的使用体验尤其是页面加载时间。IETF 的 QUIC 工作组定义了传输 (QUIC) 层和应用程序 (HTTP/3) 层之间的明确界限，以及从 QUIC Crypto 迁移到 TLS 1.3。<br>
+因为TCP是在操作系统的内核层还有middleboxes实现的，对TCP来进行大幅度修改是几乎不可能实现的。然而，由于 QUIC 是建立在 UDP 之上的，并且传输功能是加密的，所以它没有这样的限制。</p>
+<p>基于 TCP+TLS 和 HTTP/2 的 QUIC 和 HTTP/3 的主要特性包括</p>
+<ul>
+<li>减少了连接的建立时间，常见情况下为0次往返 （Reduced connection establishment time - 0 round trips in the common case）</li>
+<li>改善了拥塞控制反馈（Improved congestion control feedback）</li>
+<li>没有head of line阻塞的多路复用（Multiplexing without head of line blocking）</li>
+<li>连接迁移（Connection migration）</li>
+<li>传输可扩展性（Transport extensibility）</li>
+<li>可选的不可靠交付（Optional unreliable delivery）</li>
+</ul>
+<h1 id="quic-a-udp-based-multiplexed-and-secure-transport-rfc9000">QUIC: A UDP-Based Multiplexed and Secure Transport [RFC9000]</h1>
+<h2 id="摘要-2">摘要</h2>
+<p>这份稳定定义了QUIC传输协议的核心部分。QUIC给应用提供了结构化通信的流量控制、低延时的连接建立、还有网络路径迁移。QUIC在一系列部署环境中包含了安全的方法，保证了机密性、完整性和可用性。随附的文档描述了用于密钥协商、丢包（loss）检测和示例性拥塞控制算法的 TLS 集成。</p>
+<h2 id="概述">概述</h2>
+<p>QUIC是一种安全通用的传输协议。本文档定义了QUIC的版本1。QUIC版本相关<a href="https://datatracker.ietf.org/doc/html/rfc9000#ref-QUIC-INVARIANTS">QUIC-INVARIANTS</a>。<br>
+QUIC是一种在client和server之间创建有状态交互的面向连接的协议。<br>
+QUIC握手合并了加密的协商和传输参数。QUIC集成了TLS握手，尽管使用了定制的帧来保护数据包。如何集成在<a href="https://datatracker.ietf.org/doc/html/rfc9000#ref-QUIC-TLS">「QUIC」</a>描述得更加详细。握手被构造成允许应用尽快地交换双方的数据。这包括客户端立即发送数据的选项 (0-RTT)，这需要某种形式的事先通信或配置才能启用。<br>
+Endpoint通过交换QUIC数据包来进行通讯。大多数数据包都包含帧，这些帧在端点之间携带控制信息和应用程序数据。QUIC 对每个数据包的整体进行身份验证，并尽可能多地加密每个数据包。QUIC 数据包在 UDP 数据报 [UDP] 中携带，以更好地促进在现有系统和网络中的部署。</p>
+<p>原文链接：</p>
+<ul>
+<li>https://www.chromium.org/quic/</li>
+<li>https://datatracker.ietf.org/doc/html/rfc9000</li>
+</ul>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li><a href="#%E6%91%98%E8%A6%81">摘要</a></li>
+<li><a href="#quic-a-udp-based-multiplexed-and-secure-transport-rfc9000">QUIC: A UDP-Based Multiplexed and Secure Transport [RFC9000]</a>
+<ul>
+<li><a href="#%E6%91%98%E8%A6%81-2">摘要</a></li>
+<li><a href="#%E6%A6%82%E8%BF%B0">概述</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://fenghaojiang.github.io/post/chang-shi-shou-xie-yi-ge-raft-demo/">
+              <h3 class="post-title">
+                Raft论文翻译与笔记
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '29b6a4edad42b9a06b04',
+    clientSecret: '0b2bf43ec802b62ce6bba7fe69c330f1c6f29d62',
+    repo: 'blog-comments',
+    owner: 'fenghaojiang',
+    admin: ['fenghaojiang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  
+  <a class="rss" href="https://fenghaojiang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

@@ -1,0 +1,305 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Berkle Tree（B+ Merkle Tree） | SevenLunas</title>
+<link rel="shortcut icon" href="https://fenghaojiang.github.io/favicon.ico?v=1711358412336">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://fenghaojiang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Berkle Tree（B+ Merkle Tree） | SevenLunas - Atom Feed" href="https://fenghaojiang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="当前的Authenticated存储系统有挺大的限制：
+
+只是单纯的KV存储，使用“get/set/range”很方便，但是往往在遇到“select a, b, c from FOO where a is even”那时代价很大
+为了突破这..." />
+    <meta name="keywords" content="" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://fenghaojiang.github.io">
+  <img class="avatar" src="https://fenghaojiang.github.io/images/avatar.png?v=1711358412336" alt="">
+  </a>
+  <h1 class="site-title">
+    SevenLunas
+  </h1>
+  <p class="site-description">
+    We live in a twilight world, and there are no friends at dusk.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+        <a href="https://github.com/fenghaojiang" target="_blank">
+          <i class="ri-github-line"></i>
+        </a>
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Berkle Tree（B+ Merkle Tree）
+            </h2>
+            <div class="post-info">
+              <span>
+                2022-02-19
+              </span>
+              <span>
+                3 min read
+              </span>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <p>当前的Authenticated存储系统有挺大的限制：</p>
+<ul>
+<li>只是单纯的KV存储，使用“get/set/range”很方便，但是往往在遇到“select a, b, c from FOO where a is even”那时代价很大</li>
+<li>为了突破这个限制，需要一个更灵活的authenticated存储index</li>
+</ul>
+<h1 id="a-more-flexible-authenticated-storage-index">A more flexible authenticated storage index</h1>
+<p>在尝试过后发现还是有如下限制：</p>
+<ul>
+<li>只能通过一个属性进行索引
+<ul>
+<li>不能index一个有(a, b, c)格式记录的表并且通过一个key进行搜索</li>
+</ul>
+</li>
+<li>搜索路径此时证明大小（proof size）随着key长度变化</li>
+<li>不能自平衡，导致了更多读写放大还有反复不定的查找路径长度</li>
+</ul>
+<h1 id="cont">Cont</h1>
+<p>想法：用B+ Trees</p>
+<ul>
+<li>可以index随意的属性字段并且还可以执行随意的部分查找</li>
+<li>自平衡，搜索路径通常都是O(logN)</li>
+<li>只需要一个类似Verkle Trees的证明方案</li>
+<li>高度面向磁盘的数据结构是从80年代开始数据库系统的黄金准则</li>
+<li>可以使用一些现代数据库的B-Tree优化手段：
+<ul>
+<li>前缀编码（共享公共后缀）</li>
+<li>后缀截断（共享公共前缀）</li>
+</ul>
+</li>
+</ul>
+<figure data-type="image" tabindex="1"><img src="https://fenghaojiang.github.io/post-images/1645280369042.png" alt="" loading="lazy"></figure>
+<h1 id="berkle-trees">Berkle Trees</h1>
+<ul>
+<li>Idea:
+<ul>
+<li>用KZG commitments去证明parent-child关系</li>
+<li>用Dankrad's KZG多重证明去证明多批数据就像Verkle尝试一样</li>
+</ul>
+</li>
+<li>Construction:
+<ul>
+<li>每个节点都插入一个多项式 f(xi) = yi 其中
+<ul>
+<li>xi = hash(keyi || i), where keyi is the ith key in the node</li>
+<li>yi = hash(value) if leaf else hash(child_commitment)</li>
+</ul>
+</li>
+<li>为了证明parent-child关系，prover选择(xi, yi)并且给出verifier:
+<ul>
+<li>C, a KZG commitment to f</li>
+<li>W, witness element for the opening f(xi) = yi</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<figure data-type="image" tabindex="2"><img src="https://fenghaojiang.github.io/post-images/1645282071665.png" alt="" loading="lazy"></figure>
+<figure data-type="image" tabindex="3"><img src="https://fenghaojiang.github.io/post-images/1645282286474.png" alt="" loading="lazy"></figure>
+<figure data-type="image" tabindex="4"><img src="https://fenghaojiang.github.io/post-images/1645282295706.png" alt="" loading="lazy"></figure>
+<figure data-type="image" tabindex="5"><img src="https://fenghaojiang.github.io/post-images/1645282302905.png" alt="" loading="lazy"></figure>
+<figure data-type="image" tabindex="6"><img src="https://fenghaojiang.github.io/post-images/1645282360936.png" alt="" loading="lazy"></figure>
+<h1 id="berkle-vs-verkle">Berkle vs Verkle</h1>
+<ul>
+<li>Berkle trees are very similar to Verkle tries</li>
+<li>Both Verkle and Berkle...
+<ul>
+<li>produces vastly smaller proofs leading to better state sync and light client performance</li>
+<li>trade proof size for more expensive crytography</li>
+<li>use additively homomorphic vector commitments so they're not too expensive to update</li>
+<li>have large branching factors</li>
+</ul>
+</li>
+</ul>
+<h1 id="berkle-vs-verkle-contd">Berkle vs Verkle (contd)</h1>
+<p>Berkle</p>
+<ul>
+<li>+Can search via arbitrary predicates
+<ul>
+<li>E.g. “SELECT a, b, c from FOO where a is even”</li>
+</ul>
+</li>
+<li>+Can index multiple properties</li>
+<li>+Search path length is independent of key size</li>
+<li>+Can use all existing B+ Tree optimizations</li>
+</ul>
+<ul>
+<li>-Larger storage footprint than verkle</li>
+<li>-Proofs must contain keys along audit path*</li>
+<li>-Polynomial x values are larger, so they can’t be represented in evaluation form**</li>
+</ul>
+<p>Verkle</p>
+<ul>
+<li>+Key is the search path, so proof doesn’t need to contain audit path keys</li>
+<li>+Polynomial x values are small, so they can be kept almost exclusively in evaluations form</li>
+<li>+Smaller storage footprint than Berkle</li>
+</ul>
+<ul>
+<li>-Can only perform key-value or range queries-does not support arbitrary predicates</li>
+<li>-Can only index a single property</li>
+<li>-Search path length depends on key size</li>
+</ul>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li><a href="#a-more-flexible-authenticated-storage-index">A more flexible authenticated storage index</a></li>
+<li><a href="#cont">Cont</a></li>
+<li><a href="#berkle-trees">Berkle Trees</a></li>
+<li><a href="#berkle-vs-verkle">Berkle vs Verkle</a></li>
+<li><a href="#berkle-vs-verkle-contd">Berkle vs Verkle (contd)</a></li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://fenghaojiang.github.io/post/http-30-lun-wen-yue-du-fan-yi-ji-bi-ji/">
+              <h3 class="post-title">
+                HTTP 3.0 论文阅读笔记
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '29b6a4edad42b9a06b04',
+    clientSecret: '0b2bf43ec802b62ce6bba7fe69c330f1c6f29d62',
+    repo: 'blog-comments',
+    owner: 'fenghaojiang',
+    admin: ['fenghaojiang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  
+  <a class="rss" href="https://fenghaojiang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

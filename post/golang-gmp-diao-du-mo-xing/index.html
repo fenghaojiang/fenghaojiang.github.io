@@ -1,0 +1,332 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Golang GMP调度模型 | SevenLunas</title>
+<link rel="shortcut icon" href="https://fenghaojiang.github.io/favicon.ico?v=1711358412336">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://fenghaojiang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Golang GMP调度模型 | SevenLunas - Atom Feed" href="https://fenghaojiang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="GMP调度
+runtime调度器的三个重要组成部分：线程M、Goroutine G和处理器P：
+
+G-Goroutine协程，在运行时调度器中跟线程在操作系统差不多，但是用了更小的内存空间。
+M-操作系统的线程，由操作系统调度器调度管理。
+..." />
+    <meta name="keywords" content="技术" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://fenghaojiang.github.io">
+  <img class="avatar" src="https://fenghaojiang.github.io/images/avatar.png?v=1711358412336" alt="">
+  </a>
+  <h1 class="site-title">
+    SevenLunas
+  </h1>
+  <p class="site-description">
+    We live in a twilight world, and there are no friends at dusk.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+        <a href="https://github.com/fenghaojiang" target="_blank">
+          <i class="ri-github-line"></i>
+        </a>
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Golang GMP调度模型
+            </h2>
+            <div class="post-info">
+              <span>
+                2021-11-24
+              </span>
+              <span>
+                9 min read
+              </span>
+              
+                <a href="https://fenghaojiang.github.io/tag/Uvd2zV35S/" class="post-tag">
+                  # 技术
+                </a>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <h1 id="gmp调度">GMP调度</h1>
+<p>runtime调度器的三个重要组成部分：线程M、Goroutine G和处理器P：</p>
+<ol>
+<li>G-Goroutine协程，在运行时调度器中跟线程在操作系统差不多，但是用了更小的内存空间。</li>
+<li>M-操作系统的线程，由操作系统调度器调度管理。</li>
+<li>P-表示处理器，可以被看成在线程上的本地调度器。</li>
+</ol>
+<h2 id="g">G</h2>
+<p>Goroutine是Golang中待执行的任务，它在运行时调度器中的地位与线程在操作系统中差不多，但是它占用了更小的内存空间，也降低了上下文切换的开销。<br>
+Goroutine 只存在于 Go 语言的运行时，它是 Go 语言在用户态提供的线程，作为一种粒度更细的资源调度单元，如果使用得当能够在高并发的场景下更高效地利用机器的 CPU。<br>
+可以简单地把Goroutine状态分为3种：等待中、可运行、运行中。</p>
+<h2 id="m">M</h2>
+<p>Go 语言并发模型中的 M 是操作系统线程。调度器最多可以创建 10000 个线程，但是其中大多数的线程都不会执行用户代码（可能陷入系统调用），最多只会有 GOMAXPROCS 个活跃线程能够正常运行。<br>
+在默认情况下，运行时会将 GOMAXPROCS 设置成当前机器的核数（多少个CPU就有多少个M），我们也可以在程序中使用 runtime.GOMAXPROCS 来改变最大的活跃线程数。</p>
+<pre><code class="language-go">type m struct {
+    g0 *g
+    curg *g
+    ...
+}
+</code></pre>
+<p><strong>g0为持有调度栈的Goroutine，curg是在当前线程上运行的用户Goroutine，这也是操作系统线程唯一关心的两个 Goroutine。</strong><br>
+<strong>g0 是一个运行时中比较特殊的 Goroutine，它会深度参与运行时的调度过程，包括 Goroutine 的创建、大内存分配和 CGO 函数的执行。在后面的小节中，我们会经常看到 g0 的身影。</strong></p>
+<h2 id="p">P</h2>
+<p>调度器种的处理器P是线程M和Goroutine的中间层，它提供线程需要的上下文环境，负责调度线程上的等待队列，通过处理器 P 的调度，每一个内核线程都能够执行多个 Goroutine，它能在 Goroutine 进行一些 I/O 操作时及时让出计算资源，提高线程的利用率。<br>
+因为调度器在启动时就会创建 GOMAXPROCS 个处理器，所以 Go 语言程序的处理器数量一定会等于 GOMAXPROCS，这些处理器会绑定到不同的内核线程上。<br>
+P拥有各种G对象队列、链表、cache和状态。<br>
+数据结构：</p>
+<pre><code class="language-go">type p struct {
+	m           muintptr
+	runqhead uint32
+	runqtail uint32
+	runq     [256]guintptr
+	runnext guintptr
+	...
+}
+</code></pre>
+<p>反向存储的线程维护着线程与处理器之间的关系，而 <code>runqhead</code>、<code>runqtail</code> 和 <code>runq</code> 三个字段表示处理器持有的运行队列，其中存储着待执行的 Goroutine 列表，<code>runnext</code> 中是线程下一个需要执行的 Goroutine。</p>
+<h2 id="为什么不是gm">为什么不是GM？</h2>
+<p>Go目前使用的GMP是大约在2012年重新设计的，之前的话只有GM。M想要执行、放回必须访问全局的G队列，而M有多个，有互斥锁进行保护。<br>
+造成了以下的缺点：</p>
+<ol>
+<li>创建、销毁、调度G都需要每个M获取锁，形成了激烈的锁竞争。</li>
+<li>M转移G会造成延迟和额外的系统负载。比如当 G 中包含创建新协程的时候，M 创建了 G’，为了继续执行 G，需要把 G’交给 M’执行，也造成了很差的局部性，因为 G’和 G 是相关的，最好放在 M 上执行，而不是其他 M’。</li>
+<li>系统调用 (CPU 在 M 之间的切换) 导致频繁的线程阻塞和取消阻塞操作增加了系统开销。</li>
+</ol>
+<h2 id="gmp模型组成">GMP模型组成</h2>
+<ol>
+<li>全局队列：存放等待运行的G</li>
+<li>P的本地队列：同全局队列类似，存放的也是等待运行的 G，存的数量有限，不超过 256 个。新建 G’时，G’优先加入到 P 的本地队列，如果队列满了，则会把本地队列中一半的 G 移动到全局队列。</li>
+<li>P列表：所有的 P 都在程序启动时创建，并保存在数组中，最多有 <code>GOMAXPROCS</code>(可配置) 个。</li>
+<li>M：线程想运行任务就得获取 P，从 P 的本地队列获取 G，P 队列为空时，M 也会尝试从全局队列拿一批 G 放到 P 的本地队列，或从其他 P 的本地队列偷一半放到自己 P 的本地队列。M 运行 G，G 执行之后，M 会从 P 获取下一个 G，不断重复下去。</li>
+</ol>
+<h2 id="p和m的个数">P和M的个数</h2>
+<ol>
+<li>
+<p>P的数量：</p>
+<ul>
+<li>由启动时环境变量 <code>$GOMAXPROCS</code> 或者是由 <code>runtime</code> 的方法 <code>GOMAXPROCS()</code> 决定。这意味着在程序执行的任意时刻都只有 <code>$GOMAXPROCS</code> 个 goroutine 在同时运行。</li>
+</ul>
+</li>
+<li>
+<p>M的数量：</p>
+<ul>
+<li>go语言本身的限制：go程序启动时，会设置M的最大数量，默认10000. 但是内核很难支持这么多线程数，所以这个限制可以忽略。</li>
+<li>runtime/debug中的SetMaxThreads函数，设置M的最大数量。</li>
+<li>一个M阻塞了，会创建新的M。</li>
+</ul>
+</li>
+</ol>
+<p>M与P的数量没有绝对关系，一个M阻塞，P就会去创建或者切换另一个M，所以，即使P的默认数量是1，也有可能创建出很多个M出来。</p>
+<h2 id="调度器的设计策略">调度器的设计策略</h2>
+<p><strong>复用线程</strong>：避免频繁的创建、销毁线程，而是对线程的复用。</p>
+<p>1）work stealing 机制</p>
+<p>​ 当本线程无可运行的 G 时，尝试从其他线程绑定的 P 偷取 G，而不是销毁线程。</p>
+<p>2）hand off 机制</p>
+<p>​ 当本线程因为 G 进行系统调用阻塞时，线程释放绑定的 P，把 P 转移给其他空闲的线程执行。</p>
+<p><strong>利用并行</strong>：GOMAXPROCS 设置 P 的数量，最多有 GOMAXPROCS 个线程分布在多个 CPU 上同时运行。GOMAXPROCS 也限制了并发的程度，比如 GOMAXPROCS = 核数/2，则最多利用了一半的 CPU 核进行并行。</p>
+<p><strong>抢占</strong>：在 coroutine 中要等待一个协程主动让出 CPU 才执行下一个协程，在 Go 中，一个 goroutine 最多占用 CPU 10ms，防止其他 goroutine 被饿死，这就是 goroutine 不同于 coroutine 的一个地方。</p>
+<p><strong>全局 G 队列</strong>：在新的调度器中依然有全局 G 队列，但功能已经被弱化了，当 M 执行 work stealing 从其他 P 偷不到 G 时，它可以从全局 G 队列获取 G。</p>
+<h2 id="为什么要设置-gomaxprocs-个p">为什么要设置 GOMAXPROCS 个P ？</h2>
+<p>线程在运行却没有执行G，就浪费了CPU，而创建跟销毁CPU也会浪费时间，希望有新的goroutine创建时，立刻能有M运行它，如果销毁再新建就增加了时延。如果过多的自选线程是浪费CPU，所以系统最多有<code>GOMAXPROCS</code>个自旋线程（如果<code>GOMAXPROCS</code>=4，所以一共 4 个 P），多余的没事做的线程会让他们休眠。</p>
+<h2 id="g0和m0">g0和m0</h2>
+<p>g0和m0在runtime中比较重要</p>
+<h3 id="m0">m0</h3>
+<p>m0是进程启动的第一个进程，也称为主线程。这个M对应的实例在全局变量runtime.m0中，不需要再heap上分配，M0负责执行初始化操作和启动第一个G，再之后M0跟M没区别。m0是全局变量，而其他的m都是runtime自己创建的。一个go进程只有一个m0。</p>
+<h3 id="g0">g0</h3>
+<p>首先要明确的是每个m都有一个g0，G0仅用于负责调度的G，不知想任何可执行的函数。每个线程有一个系统堆栈，g0 虽然也是g的结构，但和普通的g还是有差别的，最重要的差别就是栈的差别。g0 上的栈是系统分配的栈，在linux上栈大小默认固定8MB，不能扩展，也不能缩小。 而普通g一开始只有2KB大小，可扩展。在 g0 上也没有任何任务函数，也没有任何状态，并且它不能被调度程序抢占。因为调度就是在g0上跑的。</p>
+<h3 id="procgo中的全局变量m0和g0">proc.go中的全局变量m0和g0</h3>
+<pre><code class="language-go">var (
+	m0           m
+	g0           g
+	raceprocctx0 uintptr
+)
+</code></pre>
+<p>在 runtime/proc.go 的文件中声明了两个全局变量，m0表示主线程，这里的g0表示和m0绑定的g0，也可以理解为m0线程的堆栈，这两个变量的赋值是汇编实现的。</p>
+<p>到这里我们应该知道了g0和m0是什么了？ m0代表主线程、g0代表了线程的堆栈。调度都是在系统堆栈上跑的，也就是一定要跑在 g0 上，所以 mstart1 函数才检查是不是在g0上， 因为接下来就要执行调度程了</p>
+<h2 id="什么是m的自旋状态">什么是M的自旋状态</h2>
+<p>M的自旋状态是指没有 G 但为运行状态的线程，不断寻找 G。</p>
+<h2 id="为什么让m自旋">为什么让M自旋？</h2>
+<p>自旋的本质是在运行，线程在运行却没有执行G，就浪费了CPU，那么为什么不销毁节省CPU，因为创建和销毁CPU也会浪费时间，我们希望当有新的goroutine创建时，立刻能有M运行它，如果销毁再新建就增加了时延，降低了效率。当然也考虑了过多的自旋线程是浪费 CPU，所以系统中最多有 GOMAXPROCS 个自旋的线程 (当前例子中的 GOMAXPROCS=4，所以一共 4 个 P)，多余的没事做线程会让他们休眠</p>
+<p>参考：</p>
+<ul>
+<li><a href="https://draveness.me/golang/docs/part3-runtime/ch06-concurrency/golang-goroutine/#">https://draveness.me/golang/docs/part3-runtime/ch06-concurrency/golang-goroutine/#</a></li>
+<li><a href="https://learnku.com/articles/41728">https://learnku.com/articles/41728</a></li>
+<li><a href="https://zboya.github.io/post/go_scheduler/">https://zboya.github.io/post/go_scheduler/</a></li>
+</ul>
+
+              </div>
+              <div class="toc-container">
+                <ul class="markdownIt-TOC">
+<li><a href="#gmp%E8%B0%83%E5%BA%A6">GMP调度</a>
+<ul>
+<li><a href="#g">G</a></li>
+<li><a href="#m">M</a></li>
+<li><a href="#p">P</a></li>
+<li><a href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E6%98%AFgm">为什么不是GM？</a></li>
+<li><a href="#gmp%E6%A8%A1%E5%9E%8B%E7%BB%84%E6%88%90">GMP模型组成</a></li>
+<li><a href="#p%E5%92%8Cm%E7%9A%84%E4%B8%AA%E6%95%B0">P和M的个数</a></li>
+<li><a href="#%E8%B0%83%E5%BA%A6%E5%99%A8%E7%9A%84%E8%AE%BE%E8%AE%A1%E7%AD%96%E7%95%A5">调度器的设计策略</a></li>
+<li><a href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E8%AE%BE%E7%BD%AE-gomaxprocs-%E4%B8%AAp">为什么要设置 GOMAXPROCS 个P ？</a></li>
+<li><a href="#g0%E5%92%8Cm0">g0和m0</a>
+<ul>
+<li><a href="#m0">m0</a></li>
+<li><a href="#g0">g0</a></li>
+<li><a href="#procgo%E4%B8%AD%E7%9A%84%E5%85%A8%E5%B1%80%E5%8F%98%E9%87%8Fm0%E5%92%8Cg0">proc.go中的全局变量m0和g0</a></li>
+</ul>
+</li>
+<li><a href="#%E4%BB%80%E4%B9%88%E6%98%AFm%E7%9A%84%E8%87%AA%E6%97%8B%E7%8A%B6%E6%80%81">什么是M的自旋状态</a></li>
+<li><a href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%AE%A9m%E8%87%AA%E6%97%8B">为什么让M自旋？</a></li>
+</ul>
+</li>
+</ul>
+
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://fenghaojiang.github.io/post/http-20-lun-wen-yue-du-bi-ji/">
+              <h3 class="post-title">
+                HTTP 2.0 论文阅读翻译及笔记
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '29b6a4edad42b9a06b04',
+    clientSecret: '0b2bf43ec802b62ce6bba7fe69c330f1c6f29d62',
+    repo: 'blog-comments',
+    owner: 'fenghaojiang',
+    admin: ['fenghaojiang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  
+  <a class="rss" href="https://fenghaojiang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>

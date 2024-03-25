@@ -1,0 +1,209 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Funny Quiz About Block Chain | SevenLunas</title>
+<link rel="shortcut icon" href="https://fenghaojiang.github.io/favicon.ico?v=1711358412336">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@2.3.0/fonts/remixicon.css" rel="stylesheet">
+<link rel="stylesheet" href="https://fenghaojiang.github.io/styles/main.css">
+<link rel="alternate" type="application/atom+xml" title="Funny Quiz About Block Chain | SevenLunas - Atom Feed" href="https://fenghaojiang.github.io/atom.xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Droid+Serif:400,700">
+
+
+
+    <meta name="description" content="Jiang：之前我想过用分布式的KV存储去替代ethereum节点的KV存储，但是调研之后觉得可能换存储层的收益并不高，节点本身也不支持kv分布式调度，最近想到了能不能把节点的kv存储换成像s3这种kv，如果这样同步下来的话应该会把节点的运..." />
+    <meta name="keywords" content="" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.10.0/katex.min.css">
+    <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div class="main">
+      <div class="main-content">
+        <div class="site-header">
+  <a href="https://fenghaojiang.github.io">
+  <img class="avatar" src="https://fenghaojiang.github.io/images/avatar.png?v=1711358412336" alt="">
+  </a>
+  <h1 class="site-title">
+    SevenLunas
+  </h1>
+  <p class="site-description">
+    We live in a twilight world, and there are no friends at dusk.
+  </p>
+  <div class="menu-container">
+    
+      
+        <a href="/" class="menu">
+          首页
+        </a>
+      
+    
+      
+        <a href="/archives" class="menu">
+          归档
+        </a>
+      
+    
+      
+        <a href="/tags" class="menu">
+          标签
+        </a>
+      
+    
+      
+        <a href="/post/about" class="menu">
+          关于
+        </a>
+      
+    
+  </div>
+  <div class="social-container">
+    
+      
+        <a href="https://github.com/fenghaojiang" target="_blank">
+          <i class="ri-github-line"></i>
+        </a>
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+  </div>
+</div>
+
+        <div class="post-detail">
+          <article class="post">
+            <h2 class="post-title">
+              Funny Quiz About Block Chain
+            </h2>
+            <div class="post-info">
+              <span>
+                2023-02-20
+              </span>
+              <span>
+                3 min read
+              </span>
+              
+            </div>
+            
+            <div class="post-content-wrapper">
+              <div class="post-content">
+                <p>Jiang：之前我想过用分布式的KV存储去替代ethereum节点的KV存储，但是调研之后觉得可能换存储层的收益并不高，节点本身也不支持kv分布式调度，最近想到了能不能把节点的kv存储换成像s3这种kv，如果这样同步下来的话应该会把节点的运维成本降低很多，可能 Node As A Service 真的有可能。比方说我在 s3 上存储了 1-1500w 区块范围的数据，当前区块高度是 1501w，如果 user 申请一个节点，我只需要把 secret key 返回给 user 然后 user 只需要在 user 的本机同步 1w 个区块就可以有一个全节点了。我调研过其实节点的热点层并不在kv层，假如说热点层不在 kv 层，那么 s3 的 qps 限制应该可以完全覆盖 blockchain 的同步需求？</p>
+<p>大佬：<br>
+具体 KV 层的改造其实我觉得无论是从哪方面来说其实 ROI 都不算高。<br>
+社区的链节点，无论是 OP，aurora，还是比如 ftm 这种，他们核心的问题都在于两点：</p>
+<ol>
+<li>全新启动节点后的 P2P 速度，这其实是共识层要解决的问题。</li>
+<li>快速迭代的导致的硬分叉。<br>
+对于2的场景来说，实际上 S3 无法解决。因为硬分叉的问题在于：</li>
+<li>不可预知性。</li>
+<li>部分写入数据后导致的底层 block 或者 metadata 的损坏。<br>
+对于2来说，如果不依赖定时的快照，重新追块的的话，那么依赖官方修复工具进行修复，也会存在一定的失败概率。所以即便切换 sk 到新的 S3 也会存在问题。<br>
+另外一方面考虑，刨除 S3 低性能以及带来的流量 NAT 费用来说。你在生产环境下长远来看是不太可能只有一个类型的节点的，为了满足你们数据同步的需求，预执行，transaction trace 都可能成为独立的状态节点。所以从这个角度考虑，即便依赖 S3 ，节点之间的状态同步也会成为问题。<br>
+现阶段如果你们没有遇到 KV 曾的瓶颈的话，改造 ROI 不高。倒是可以把 snapshot 之类的操作，SOP 化和自动化，依托 K8S Operator 等设施尽可能减少人力投入。<br>
+之前说的 热点不在 KV 并不代表着性能不重要。实际上社区许多节点对磁盘性能都有要求。因为很多链底层对于随机读写性能要求都比较高。S3 在这方面实际上还是比较欠缺的。</li>
+</ol>
+
+              </div>
+              <div class="toc-container">
+                
+              </div>
+            </div>
+          </article>
+        </div>
+
+        
+          <div class="next-post">
+            <div class="next">下一篇</div>
+            <a href="https://fenghaojiang.github.io/post/spark-ji-chu/">
+              <h3 class="post-title">
+                Spark捣鼓记录
+              </h3>
+            </a>
+          </div>
+        
+
+        
+          
+            <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+<script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+<div id="gitalk-container"></div>
+
+<script>
+
+  var gitalk = new Gitalk({
+    clientID: '29b6a4edad42b9a06b04',
+    clientSecret: '0b2bf43ec802b62ce6bba7fe69c330f1c6f29d62',
+    repo: 'blog-comments',
+    owner: 'fenghaojiang',
+    admin: ['fenghaojiang'],
+    id: (location.pathname).substring(0, 49),      // Ensure uniqueness and length less than 50
+    distractionFreeMode: false  // Facebook-like distraction free mode
+  })
+
+  gitalk.render('gitalk-container')
+
+</script>
+
+          
+
+          
+        
+
+        <div class="site-footer">
+  
+  <a class="rss" href="https://fenghaojiang.github.io/atom.xml" target="_blank">
+    <i class="ri-rss-line"></i> RSS
+  </a>
+</div>
+
+      </div>
+    </div>
+
+    <script>
+      hljs.initHighlightingOnLoad()
+
+      let mainNavLinks = document.querySelectorAll(".markdownIt-TOC a");
+
+      // This should probably be throttled.
+      // Especially because it triggers during smooth scrolling.
+      // https://lodash.com/docs/4.17.10#throttle
+      // You could do like...
+      // window.addEventListener("scroll", () => {
+      //    _.throttle(doThatStuff, 100);
+      // });
+      // Only not doing it here to keep this Pen dependency-free.
+
+      window.addEventListener("scroll", event => {
+        let fromTop = window.scrollY;
+
+        mainNavLinks.forEach((link, index) => {
+          let section = document.getElementById(decodeURI(link.hash).substring(1));
+          let nextSection = null
+          if (mainNavLinks[index + 1]) {
+            nextSection = document.getElementById(decodeURI(mainNavLinks[index + 1].hash).substring(1));
+          }
+          if (section.offsetTop <= fromTop) {
+            if (nextSection) {
+              if (nextSection.offsetTop > fromTop) {
+                link.classList.add("current");
+              } else {
+                link.classList.remove("current");    
+              }
+            } else {
+              link.classList.add("current");
+            }
+          } else {
+            link.classList.remove("current");
+          }
+        });
+      });
+
+    </script>
+  </body>
+</html>
